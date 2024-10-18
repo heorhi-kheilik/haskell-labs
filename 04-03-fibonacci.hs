@@ -22,3 +22,17 @@ matrix_mul_helper m_first m_second m_acc
         where m_new_acc          = matrix_push_last_col m_acc res_col
               res_col            = matrix_mul_by_col m_first cur_col
               (cur_col, cropped) = matrix_pop_first_col m_second
+
+matrix_identity :: Num a => Int -> [[a]]
+matrix_identity n = [ (take prep_count $ repeat 0) ++ [1] ++ (take app_count $ repeat 0) |
+    (prep_count, app_count) <- zip [0 .. n - 1] [n - 1, n - 2 .. 0] ]
+
+matrix_log_pow :: (Num a, Integral b) => b -> [[a]] -> [[a]]
+matrix_log_pow 0 matrix = matrix_identity $ length matrix
+matrix_log_pow power matrix = case divMod power 2 of
+    (_, 1)  -> matrix_mul matrix (matrix_log_pow (power - 1) matrix)
+    (p, _)  -> matrix_log_pow p $ matrix_mul matrix matrix
+
+log_fib 0 = 0
+log_fib 1 = 0
+log_fib n = last $ last $ matrix_log_pow (n - 1) [ [0, 1], [1, 1] ]

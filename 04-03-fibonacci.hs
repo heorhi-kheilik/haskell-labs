@@ -15,16 +15,17 @@
 
 -- matrix_calc_mul_upper_left matrix = 
 
-
-
-matrix_mul_elem [] [] accumulator = accumulator
-matrix_mul_elem row col accumulator = matrix_mul_elem t_row t_col new_accumulator
-    where new_accumulator = h_row * h_col + accumulator
-          (h_row:t_row)   = row
-          (h_col:t_col)   = col
+vector_mul [] [] acc = acc
+vector_mul v_first v_second acc = vector_mul tail_v_first tail_v_second new_acc
+    where new_acc                       = head_v_first * head_v_second + acc
+          (head_v_first:tail_v_first)   = v_first
+          (head_v_second:tail_v_second) = v_second
 
 matrix_mul_by_col :: Num a => [[a]] -> [a] -> [a]
-matrix_mul_by_col matrix col = [ matrix_mul_elem row col 0 | row <- matrix ]
+matrix_mul_by_col matrix col = [ vector_mul row col 0 | row <- matrix ]
+
+matrix_add_col matrix col = [ current_row ++ [col_elem] | (current_row, col_elem) <- zip matrix col ]
+
 
 
 

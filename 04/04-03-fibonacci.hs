@@ -34,5 +34,5 @@ matrix_log_pow power matrix = case divMod power 2 of
     (p, _)  -> matrix_log_pow p $ matrix_mul matrix matrix
 
 log_fib 0 = 0
-log_fib 1 = 0
+log_fib 1 = 1
 log_fib n = last $ last $ matrix_log_pow (n - 1) [ [0, 1], [1, 1] ]

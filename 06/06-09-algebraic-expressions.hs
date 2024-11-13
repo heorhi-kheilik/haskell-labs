@@ -1,3 +1,5 @@
+import Data.Map (Map, (!), fromList)
+
 data UnaryOperation = Negate | Sqrt | Sin | Cos | Tan
 
 instance Show UnaryOperation where
@@ -44,7 +46,7 @@ data AlgebraicTree
 instance Show AlgebraicTree where
     show tree = case tree of
         ATLeafC const               -> show const
-        ATLeafV var                 -> show var
+        ATLeafV var                 -> var
         ATVertexU op tree           -> _format (show op) [tree]
         ATVertexB op tree1 tree2    -> "(" ++ _format (show op) [tree1, tree2] ++ ")"
 
@@ -61,13 +63,18 @@ _format template args = let (first, second) = break (\x -> x == '$') template in
             in
                 _format formatted args
 
-
 solve :: AlgebraicTree -> Double
 solve t = case t of
     ATLeafC const               -> const
-    ATLeafV mapping             -> 0
+    ATLeafV _                   -> error "Can't solve expression with unresolved variables"
     ATVertexU op tree           -> applyUnary op (solve tree)
     ATVertexB op tree1 tree2    -> applyBinary op (solve tree1) (solve tree2)
+
+resolveWith :: (Map String Double) -> AlgebraicTree -> AlgebraicTree
+resolveWith map (ATLeafV var) = ATLeafC $ map ! var
+resolveWith _ const@(ATLeafC _) = const
+resolveWith map (ATVertexU op tree) = ATVertexU op (resolveWith map tree)
+resolveWith map (ATVertexB op tree1 tree2) = ATVertexB op (resolveWith map tree1) (resolveWith map tree2)
 
 -- simplify :: AlgebraicTree -> AlgebraicTree
 -- simplify tree = case tree of

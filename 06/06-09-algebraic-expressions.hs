@@ -71,25 +71,26 @@ solve t = case t of
     ATVertexB op tree1 tree2    -> applyBinary op (solve tree1) (solve tree2)
 
 resolveWith :: (Map String Double) -> AlgebraicTree -> AlgebraicTree
-resolveWith map (ATLeafV var) = ATLeafC $ map ! var
-resolveWith _ const@(ATLeafC _) = const
-resolveWith map (ATVertexU op tree) = ATVertexU op (resolveWith map tree)
-resolveWith map (ATVertexB op tree1 tree2) = ATVertexB op (resolveWith map tree1) (resolveWith map tree2)
+resolveWith map tree = case tree of
+    const@(ATLeafC _)           -> const
+    ATLeafV var                 -> ATLeafC $ map ! var
+    ATVertexU op tree           -> ATVertexU op $ resolveWith map tree
+    ATVertexB op tree1 tree2    -> ATVertexB op (resolveWith map tree1) (resolveWith map tree2)
 
--- simplify :: AlgebraicTree -> AlgebraicTree
--- simplify tree = case tree of
---     ATLeafC _                                           -> tree
---     ATLeafV _                                           -> tree
---     ATVertexU _ (ATLeafC _)                             -> ATLeafC (solve tree)
---     ATVertexB _ (ATLeafC _) (ATLeafC _)                 -> ATLeafC (solve tree)
---     ATVertexU Negate (ATVertexU Negate (ATLeafV var))   -> ATLeafV var
---     ATVertexB Add opSin opCos
---     ATVertexB Add (
---         ATVertexB Multiply
---             (ATVertexU Sin (ATLeafV var1))
---             (ATVertexU Sin (ATLeafV var2))
---     ) (
---         ATVertexB Multiply
---             (ATVertexU Cos (ATLeafV var3))
---             (ATVertexU Cos (ATLeafV var4))
---     )                                                   -> ATLeafC 1
+simplify :: AlgebraicTree -> AlgebraicTree
+simplify tree = case tree of
+    ATLeafC _                                           -> tree
+    ATLeafV _                                           -> tree
+    ATVertexU _ (ATLeafC _)                             -> ATLeafC $ solve tree
+    ATVertexB _ (ATLeafC _) (ATLeafC _)                 -> ATLeafC $ solve tree
+    ATVertexU Negate (ATVertexU Negate (ATLeafV var))   -> ATLeafV var
+    -- ATVertexB Add opSin opCos
+    -- ATVertexB Add (
+    --     ATVertexB Multiply
+    --         (ATVertexU Sin (ATLeafV var1))
+    --         (ATVertexU Sin (ATLeafV var2))
+    -- ) (
+    --     ATVertexB Multiply
+    --         (ATVertexU Cos (ATLeafV var3))
+    --         (ATVertexU Cos (ATLeafV var4))
+    -- )                                                   -> ATLeafC 1

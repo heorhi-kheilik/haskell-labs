@@ -16,3 +16,5 @@ fibonacciListLambda = \(first, second) -> first : fibonacciListLambda (second, f
 helperFibonacciList fibListParam = \(first, second) -> first : fibListParam (second, first + second)
 
 fixFibonacciList = fix helperFibonacciList (0, 1)
+
+fixFibListL = fix (\rec first second -> first : rec second (first + second)) 0 1

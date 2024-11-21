@@ -44,3 +44,5 @@ helperGCDFixSubstituted gcdParam = \pair@(a, b) ->
 
 gcdFix = fix helperGCDFix
 gcdFixSubstituted = fix helperGCDFixSubstituted
+
+gcdFixL = fix (\rec a b -> if a == b then a else let (mn, mx) = (min a b, max a b) in rec (mx - mn) mn)

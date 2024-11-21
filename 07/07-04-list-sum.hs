@@ -12,3 +12,5 @@ helperSumOfList funcParam = \list -> case list of
     x : xs  ->  x + funcParam xs
 
 fixSumOfList = fix helperSumOfList
+
+fixSumL = fix (\rec list -> if null list then 0 else let x : xs = list in x + rec xs)

@@ -33,3 +33,7 @@ helperFibonacciByIndexC funcParam = \(first, second) index ->
         else funcParam (second, first + second) (index - 1)
 
 fixFibonacciByIndexC = fix helperFibonacciByIndexC (0, 1)
+
+fixFibByIndexL = fix (\rec first second index -> if index == 1
+    then first
+    else rec second (first + second) (index - 1)) 0 1

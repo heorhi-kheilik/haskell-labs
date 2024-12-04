@@ -133,3 +133,21 @@ _daysBetweenH first Date { year = year', month = month', day = day' } count
     | otherwise                 = _daysBetweenH first
                                                 Date { year = year', month = month' - 1, day = 1 }
                                                 count + _daysInMonthForYear (month' - 1) (year')
+
+addYears :: Int -> Date -> Date
+addYears years Date { year = year', month = month', day = day' }
+    | month' == 2 && day' == 29 = let newYear = year' + years in
+                                    if _isLeapYear newYear then Date { year = newYear, month = 02, day = 29 }
+                                    else Date { year = newYear, month = 03, day = 01 }
+    | otherwise                 = Date { year = year' + years, month = month', day = day' }
+
+addMonths :: Int -> Date -> Date
+addMonths months date@Date { year = year', month = month', day = day' }
+    | months == 0                   = if day' > _daysInMonthForYear month' year'
+                                        then Date { year = year', month = month' + 1, day = 1 }
+                                        else date
+    | months > 12 || months < -11   = let (d, m) = divMod months 12
+                                      in addMonths m Date { year = year' + d, month = month', day = day' }
+    | month' + months > 12          = addMonths 0 Date { year = year' + 1, month = month' + months - 12, day = day' }
+    | month' + months < 1           = addMonths 0 Date { year = year' - 1, month = month' + months + 12, day = day' }
+    | otherwise                     = addMonths 0 Date { year = year', month = month' + months, day = day' }

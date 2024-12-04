@@ -68,30 +68,30 @@ instance Ord Date where
 
 yearsBetween :: Date -> Date -> Int
 yearsBetween first second = case compare first second of
-    LT  ->  _yearsBetweenH first second (_secondDateIsEarlierOnSameYear first second) 0
-    GT  ->  -(yearsBetween second first)
     EQ  ->  0
+    LT  ->  transform $ _yearsBetweenH first second 0
+            where transform = max 0 . (flip (-)) (sameYearModifier first second)
+                  sameYearModifier first second | month second < month first    = 1
+                                                | month second > month first    = 0
+                                                | day second < day first        = 1
+                                                | otherwise                     = 0
+    GT  ->  transform $ _yearsBetweenH second first 0
+            where transform = min 0 . (+) (sameYearModifier first second) . negate
+                  sameYearModifier first second | month first < month second    = 1
+                                                | month first > month second    = 0
+                                                | day first < day second        = 1
+                                                | otherwise                     = 0
 
-_secondDateIsEarlierOnSameYear :: Date -> Date -> Bool
-_secondDateIsEarlierOnSameYear first second = case (compare (month first) (month second), compare (day first) (day second)) of
-    (LT, _)     ->  True
-    (EQ, LT)    ->  True
-    (EQ, EQ)    ->  True
-    (EQ, GT)    ->  False
-    (GT, _)     ->  False
-
-_yearsBetweenH :: Date -> Date -> Bool -> Int -> Int
-_yearsBetweenH first second secondIsEarlier count = if (year first) == (year second)
-    then if secondIsEarlier
-        then count
-        else max (count - 1) 0
+_yearsBetweenH :: Date -> Date -> Int -> Int
+_yearsBetweenH first second count = if (year first) == (year second)
+    then count
     else
         let
             closerYear = (year second) - 1
             month' = month second
             day' = min (_daysInMonthForYear month' closerYear) (day second)
         in
-            _yearsBetweenH first Date { year = closerYear, month = month', day = day' } secondIsEarlier (count + 1)
+            _yearsBetweenH first Date { year = closerYear, month = month', day = day' } (count + 1)
 
 monthsBetween :: Date -> Date -> Int
 monthsBetween first second = case compare first second of

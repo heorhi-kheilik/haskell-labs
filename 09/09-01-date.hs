@@ -95,25 +95,41 @@ _yearsBetweenH first second count = if (year first) == (year second)
 
 monthsBetween :: Date -> Date -> Int
 monthsBetween first second = case compare first second of
-    LT  -> _monthsBetweenH first second (day second < day first) 0
-    GT  -> -(monthsBetween second first)
-    EQ  -> 0
+    EQ  ->  0
+    LT  ->  transform $ _monthsBetweenH first second 0
+            where transform = max 0 . (flip (-)) (sameMonthModifier first second)
+                  sameMonthModifier first second = if day second < day first then 1 else 0
+    GT  ->  transform $ _monthsBetweenH second first 0
+            where transform = min 0 . (+) (sameMonthModifier first second) . negate
+                  sameMonthModifier first second = if day first < day second then 1 else 0
 
-_monthsBetweenH first second secondIsEarlier count = if (year first == year second) && (month first == month second)
-    then if secondIsEarlier
-        then count
-        else max (count - 1) 0
-    else
-        if (month second) == 1
-            then
-                let
-                    closerYear = (year second) - 1
-                    newSecondDate = Date { year = closerYear, month = 12, day = min (day second) (_daysInMonthForYear 12 closerYear) }
-                in
-                    _monthsBetweenH first newSecondDate secondIsEarlier (count + 1)
-            else
-                let
-                    closerMonth = (month second) - 1
-                    newSecondDate = Date { year = year second, month = closerMonth, day = min (day second) (_daysInMonthForYear closerMonth (year second)) }
-                in
-                    _monthsBetweenH first newSecondDate secondIsEarlier (count + 1)
+_monthsBetweenH first second count =
+    if year first == year second && month first == month second then count else _monthsBetweenH first second' (count + 1)
+        where second' = if month second == 1
+                then let year' = (year second) - 1
+                         month' = 12
+                         day' = min (day second) (_daysInMonthForYear month' year')
+                     in Date { year = year', month = month', day = day' }
+                else let year' = year second
+                         month' = (month second) - 1
+                         day' = min (day second) (_daysInMonthForYear month' year')
+                     in Date { year = year', month = month', day = day' }
+
+daysBetween :: Date -> Date -> Int
+daysBetween first second = case compare first second of
+    EQ  ->  0
+    LT  ->  _daysBetweenH first second 0
+    GT  ->  negate $ _daysBetweenH second first 0
+
+_daysBetweenH first Date { year = year', month = month', day = day' } count
+    | year first == year' &&
+      month first == month'     = count + (day' - day first)
+    | day' /= 1                 = _daysBetweenH first
+                                                Date { year = year', month = month', day = 1 }
+                                                count + day' - 1
+    | month' == 1               = _daysBetweenH first
+                                                Date { year = year' - 1, month = 12, day = 1 }
+                                                count + 31
+    | otherwise                 = _daysBetweenH first
+                                                Date { year = year', month = month' - 1, day = 1 }
+                                                count + _daysInMonthForYear (month' - 1) (year')

@@ -33,6 +33,7 @@ _daysInMonthForYear month year = case (month, _isLeapYear year) of
     (11, _)     ->  30
     (12, _)     ->  31
 
+_daysInMonth Date { month = month', year = year' } = _daysInMonthForYear month' year'
 
 instance Show Date where
     show :: Date -> String
@@ -151,3 +152,18 @@ addMonths months date@Date { year = year', month = month', day = day' }
     | month' + months > 12          = addMonths 0 Date { year = year' + 1, month = month' + months - 12, day = day' }
     | month' + months < 1           = addMonths 0 Date { year = year' - 1, month = month' + months + 12, day = day' }
     | otherwise                     = addMonths 0 Date { year = year', month = month' + months, day = day' }
+
+addDays :: Int -> Date -> Date
+addDays days date@Date { year = year', month = month', day = day' }
+    | day' + days >= 1 && day' + days <= _daysInMonth date = Date { year = year', month = month', day = day' + days }
+    | day' /= 1                         = addDays (days + day' - 1) Date { year = year', month = month', day = 1 }
+    | day' + days > _daysInMonth date   = if month' == 12
+                                          then addDays (days - 31)
+                                                       Date { year = year' + 1, month = 1, day = 1 }
+                                          else addDays (days - _daysInMonth date)
+                                                       Date { year = year', month = month' + 1, day = 1 }
+    | day' + days < 1                   = if month' == 1
+                                          then addDays (days + 31)
+                                                       Date { year = year' - 1, month = 12, day = 1 }
+                                          else addDays (days + _daysInMonthForYear (month' - 1) year')
+                                                       Date { year = year', month = month' - 1, day = 1 }

@@ -39,15 +39,32 @@ _fromListIntH (x : xs) result = if not $ null $ filter (\el -> el == x) result
 
 instance NumberSet [Bool] where
     contains :: [Bool] -> Int -> Bool
-    contains list index = (!!) list $ pred index
+    contains list index = length list >= index && (list !! pred index)
 
     fromList :: [Int] -> [Bool]
+    fromList [] = []
     fromList list =
         let (first : preparedList) = _uniqueReversedInSorted $ sort list
         in _fromListBoolH preparedList [True] first
 
-    -- toList :: [Bool] -> [Int]
-    -- toList list = 
+    toList :: [Bool] -> [Int]
+    toList list = map snd $ filter fst $ zip list [1..]
+
+    union :: [Bool] -> [Bool] -> [Bool]
+    union first second =
+        if length first < length second
+        then union second first
+        else
+            let (firstB, firstE) = splitAt (length second) first
+            in (map (uncurry (||)) (zip firstB second)) ++ firstE
+
+    intersection :: [Bool] -> [Bool] -> [Bool]
+    intersection = ((.) $ (.) $ map $ uncurry (&&)) zip
+
+    difference :: [Bool] -> [Bool] -> [Bool]
+    difference first second =
+        let (firstB, firstE) = splitAt (length second) first
+        in map (\(a, b) -> a && not b) (zip firstB second) ++ firstE
 
 _uniqueReversedInSortedH :: [Int] -> [Int] -> [Int]
 _uniqueReversedInSortedH result []              = result

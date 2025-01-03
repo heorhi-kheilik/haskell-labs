@@ -1,36 +1,62 @@
-import Data.Function (fix)
+import Data.List (sort)
 
 class NumberSet t where
-    contains :: t -> Integer -> Bool
+    contains :: t -> Int -> Bool
 
-    fromList :: [Integer] -> t
-    toList :: t -> [Integer]
+    fromList :: [Int] -> t
+    toList :: t -> [Int]
 
     union :: t -> t -> t
     intersection :: t -> t -> t
     difference :: t -> t -> t
 
-instance NumberSet [Integer] where
-    contains :: [Integer] -> Integer -> Bool
+instance NumberSet [Int] where
+    contains :: [Int] -> Int -> Bool
     contains [] _ = False
     contains (x : xs) num = if x == num then True else contains xs num
 
-    fromList :: [Integer] -> [Integer]
-    fromList = fix (\rec result list -> if null list then result else
-                                            let (x : xs) = list
-                                            in if not $ contains result x
-                                               then rec xs (x : result)
-                                               else rec xs result) []
+    fromList :: [Int] -> [Int]
+    fromList = (flip _fromListIntH) []
 
-    toList :: [Integer] -> [Integer]
+    toList :: [Int] -> [Int]
     toList = id
 
-    union :: [Integer] -> [Integer] -> [Integer]
+    union :: [Int] -> [Int] -> [Int]
     union first second = first ++ [ x | x <- second, not $ contains first x ]
 
-    intersection :: [Integer] -> [Integer] -> [Integer]
-    intersection first second = first ++ [ x | x <- second, contains first x ]
+    intersection :: [Int] -> [Int] -> [Int]
+    intersection first second = [ x | x <- second, contains first x, contains second x ]
 
-    difference :: [Integer] -> [Integer] -> [Integer]
+    difference :: [Int] -> [Int] -> [Int]
     difference first second = let intersectionSet = intersection first second
-                              in filter (contains intersectionSet) first
+                              in filter (not . contains intersectionSet) first
+
+_fromListIntH :: [Int] -> [Int] -> [Int]
+_fromListIntH [] result = result
+_fromListIntH (x : xs) result = if not $ null $ filter (\el -> el == x) result
+    then _fromListIntH xs result
+    else _fromListIntH xs (x : result)
+
+instance NumberSet [Bool] where
+    contains :: [Bool] -> Int -> Bool
+    contains list index = (!!) list $ pred index
+
+    fromList :: [Int] -> [Bool]
+    fromList list =
+        let (first : preparedList) = _uniqueReversedInSorted $ sort list
+        in _fromListBoolH preparedList [True] first
+
+    -- toList :: [Bool] -> [Int]
+    -- toList list = 
+
+_uniqueReversedInSortedH :: [Int] -> [Int] -> [Int]
+_uniqueReversedInSortedH result []              = result
+_uniqueReversedInSortedH result (x : [])        = (x : result)
+_uniqueReversedInSortedH result (x1 : x2 : xs)  = _uniqueReversedInSortedH newResult (x2 : xs)
+    where newResult = if x1 == x2 then result else x1 : result
+
+_uniqueReversedInSorted = _uniqueReversedInSortedH []
+
+_fromListBoolH :: [Int] -> [Bool] -> Int -> [Bool]
+_fromListBoolH [] result count = (take (pred count) (repeat False)) ++ result
+_fromListBoolH (x : xs) result count = _fromListBoolH xs ((True : take (count - x - 1) (repeat False)) ++ result) x

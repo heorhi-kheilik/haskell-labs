@@ -4,7 +4,6 @@ data UnaryOperation = Negate
                     | Sqrt
                     | Sin
                     | Cos
-                    | Tan
                     deriving (Eq)
 
 instance Show UnaryOperation where
@@ -19,13 +18,12 @@ applyUnary op num = case op of
     Sqrt    -> sqrt num
     Sin     -> sin num
     Cos     -> cos num
-    Tan     -> tan num
-
 
 data BinaryOperation = Add
                      | Subtract
                      | Multiply
                      | Divide
+                     | Pow
                      | Min
                      | Max
                      deriving (Eq)
@@ -35,6 +33,7 @@ instance Show BinaryOperation where
     show Subtract = "$0 - $1"
     show Multiply = "$0 * $1"
     show Divide = "$0 / $1"
+    show Pow = "$0 ^ $1"
     show Min = "min($0, $1)"
     show Max = "max($0, $1)"
 
@@ -44,6 +43,7 @@ applyBinary op num1 num2 = case op of
     Subtract    -> num1 - num2
     Multiply    -> num1 * num2
     Divide      -> num1 / num2
+    Pow         -> num1 ** num2
     Min         -> min num1 num2
     Max         -> max num1 num2
 
@@ -52,6 +52,7 @@ _isCommutative op = case op of
     Subtract    -> False
     Multiply    -> True
     Divide      -> False
+    Pow         -> False
     Min         -> True
     Max         -> True
 
@@ -138,6 +139,8 @@ simplify (ATVertexB operation subtree1 subtree2) =
         (Multiply, subtree, (ATLeafC 1)) -> subtree
         (Multiply, (ATLeafC 1), subtree) -> subtree
         (Divide, subtree, (ATLeafC 1)) -> subtree
+        (Pow, _, (ATLeafC 0)) -> ATLeafC 1
+        (Pow, subtree, (ATLeafC 1)) -> subtree
         (Min, subtree1, subtree2) ->
             if subtree1 == subtree2
             then subtree1
@@ -150,3 +153,7 @@ simplify (ATVertexB operation subtree1 subtree2) =
         _ -> ATVertexB operation subtree1' subtree2'
 
 -- ATVertexB Add (ATVertexB Multiply (ATVertexU Sin (ATLeafV "a")) (ATVertexU Sin (ATLeafV "a"))) (ATVertexB Multiply (ATVertexU Cos (ATLeafV "a")) (ATVertexU Cos (ATLeafV "a")))
+
+-- derivative :: AlgebraicTree -> String -> AlgebraicTree
+-- derivative (ATLeafC _) _ = ATLeafC 0
+-- derivative 

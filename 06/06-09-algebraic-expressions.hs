@@ -1,6 +1,11 @@
 import Data.Map (Map, (!), fromList)
 
-data UnaryOperation = Negate | Sqrt | Sin | Cos | Tan
+data UnaryOperation = Negate
+                    | Sqrt
+                    | Sin
+                    | Cos
+                    | Tan
+                    deriving (Eq)
 
 instance Show UnaryOperation where
     show Negate = "-$0"
@@ -17,7 +22,13 @@ applyUnary op num = case op of
     Tan     -> tan num
 
 
-data BinaryOperation = Add | Subtract | Multiply | Divide | Min | Max
+data BinaryOperation = Add
+                     | Subtract
+                     | Multiply
+                     | Divide
+                     | Min
+                     | Max
+                     deriving (Eq)
 
 instance Show BinaryOperation where
     show Add = "$0 + $1"
@@ -36,12 +47,27 @@ applyBinary op num1 num2 = case op of
     Min         -> min num1 num2
     Max         -> max num1 num2
 
+_isCommutative op = case op of
+    Add         -> True
+    Subtract    -> False
+    Multiply    -> True
+    Divide      -> False
+    Min         -> True
+    Max         -> True
 
-data AlgebraicTree
-    = ATVertexU UnaryOperation AlgebraicTree
-    | ATVertexB BinaryOperation AlgebraicTree AlgebraicTree
-    | ATLeafC Double
-    | ATLeafV String
+data AlgebraicTree = ATVertexU UnaryOperation AlgebraicTree
+                   | ATVertexB BinaryOperation AlgebraicTree AlgebraicTree
+                   | ATLeafC Double
+                   | ATLeafV String
+
+instance Eq AlgebraicTree where
+    (ATLeafC num1) == (ATLeafC num2) = num1 == num2
+    (ATLeafV var1) == (ATLeafV var2) = var1 == var2
+    (ATVertexU op1 tree1) == (ATVertexU op2 tree2) = op1 == op2 && tree1 == tree2
+    (ATVertexB op1 tree11 tree12) == (ATVertexB op2 tree21 tree22)
+        | op1 /= op2                = False
+        | not $ _isCommutative op1  = tree11 == tree21 && tree12 == tree22
+        | otherwise                 = (tree11 == tree21 && tree12 == tree22) || (tree11 == tree22 && tree12 == tree21)
 
 instance Show AlgebraicTree where
     show tree = case tree of
@@ -78,19 +104,49 @@ resolveWith map tree = case tree of
     ATVertexB op tree1 tree2    -> ATVertexB op (resolveWith map tree1) (resolveWith map tree2)
 
 simplify :: AlgebraicTree -> AlgebraicTree
-simplify tree = case tree of
-    ATLeafC _                                           -> tree
-    ATLeafV _                                           -> tree
-    ATVertexU _ (ATLeafC _)                             -> ATLeafC $ solve tree
-    ATVertexB _ (ATLeafC _) (ATLeafC _)                 -> ATLeafC $ solve tree
-    ATVertexU Negate (ATVertexU Negate (ATLeafV var))   -> ATLeafV var
-    -- ATVertexB Add opSin opCos
-    -- ATVertexB Add (
-    --     ATVertexB Multiply
-    --         (ATVertexU Sin (ATLeafV var1))
-    --         (ATVertexU Sin (ATLeafV var2))
-    -- ) (
-    --     ATVertexB Multiply
-    --         (ATVertexU Cos (ATLeafV var3))
-    --         (ATVertexU Cos (ATLeafV var4))
-    -- )                                                   -> ATLeafC 1
+simplify tree@(ATLeafC _) = tree
+simplify tree@(ATLeafV _) = tree
+
+simplify (ATVertexU operation subtree) =
+    let subtree' = simplify subtree
+    in case (operation, subtree') of
+        (Negate, (ATVertexU Negate subtree))    -> subtree
+        (op, ATLeafC num)                       -> ATLeafC (applyUnary op num)
+        _                                       -> ATVertexU operation subtree'
+
+simplify (ATVertexB operation subtree1 subtree2) =
+    let subtree1' = simplify subtree1
+        subtree2' = simplify subtree2
+    in case (operation, subtree1', subtree2') of
+        ( Add,
+          ATVertexB Multiply (ATVertexU Sin (ATLeafV var1)) (ATVertexU Sin (ATLeafV var2)),
+          ATVertexB Multiply (ATVertexU Cos (ATLeafV var3)) (ATVertexU Cos (ATLeafV var4))
+          ) ->
+            if var1 == var2 && var2 == var3 && var3 == var4
+            then ATLeafC 1
+            else ATVertexB operation subtree1' subtree2'
+        (Add, subtree, (ATLeafC 0)) -> subtree
+        (Add, (ATLeafC 0), subtree) -> subtree
+        (Subtract, subtree, (ATLeafC 0)) -> subtree
+        (Subtract, (ATLeafC 0), subtree) -> ATVertexU Negate subtree
+        (Subtract, first, second) ->
+            if first == second
+            then ATLeafC 0
+            else ATVertexB operation subtree1' subtree2'
+        (Multiply, _, (ATLeafC 0)) -> ATLeafC 0
+        (Multiply, (ATLeafC 0), _) -> ATLeafC 0
+        (Multiply, subtree, (ATLeafC 1)) -> subtree
+        (Multiply, (ATLeafC 1), subtree) -> subtree
+        (Divide, subtree, (ATLeafC 1)) -> subtree
+        (Min, subtree1, subtree2) ->
+            if subtree1 == subtree2
+            then subtree1
+            else ATVertexB operation subtree1' subtree2'
+        (Max, subtree1, subtree2) ->
+            if subtree1 == subtree2
+            then subtree1
+            else ATVertexB operation subtree1' subtree2'
+        (operation, ATLeafC num1, ATLeafC num2) -> ATLeafC (applyBinary operation num1 num2)
+        _ -> ATVertexB operation subtree1' subtree2'
+
+-- ATVertexB Add (ATVertexB Multiply (ATVertexU Sin (ATLeafV "a")) (ATVertexU Sin (ATLeafV "a"))) (ATVertexB Multiply (ATVertexU Cos (ATLeafV "a")) (ATVertexU Cos (ATLeafV "a")))

@@ -69,6 +69,7 @@ instance Eq AlgebraicTree where
         | op1 /= op2                = False
         | not $ _isCommutative op1  = tree11 == tree21 && tree12 == tree22
         | otherwise                 = (tree11 == tree21 && tree12 == tree22) || (tree11 == tree22 && tree12 == tree21)
+    _ == _ = False
 
 instance Show AlgebraicTree where
     show tree = case tree of
@@ -152,8 +153,42 @@ simplify (ATVertexB operation subtree1 subtree2) =
         (operation, ATLeafC num1, ATLeafC num2) -> ATLeafC (applyBinary operation num1 num2)
         _ -> ATVertexB operation subtree1' subtree2'
 
+
+
 -- ATVertexB Add (ATVertexB Multiply (ATVertexU Sin (ATLeafV "a")) (ATVertexU Sin (ATLeafV "a"))) (ATVertexB Multiply (ATVertexU Cos (ATLeafV "a")) (ATVertexU Cos (ATLeafV "a")))
 
--- derivative :: AlgebraicTree -> String -> AlgebraicTree
--- derivative (ATLeafC _) _ = ATLeafC 0
--- derivative 
+derivative :: AlgebraicTree -> String -> AlgebraicTree
+derivative (ATLeafC _) _ = ATLeafC 0
+derivative (ATLeafV varTree) varInput
+    | varTree /= varInput   = ATLeafC 0
+    | otherwise             = ATLeafC 1
+
+derivative (ATVertexU Negate tree) var = ATVertexU Negate (derivative tree var)
+derivative (ATVertexU Sqrt tree) var = derivative (ATVertexB Pow tree (ATLeafC (-0.5))) var
+derivative (ATVertexU Sin tree) var = ATVertexB Multiply (ATVertexU Cos tree) (derivative tree var)
+derivative (ATVertexU Cos tree) var = ATVertexB Multiply (ATVertexU Negate (ATVertexU Sin tree)) (derivative tree var)
+
+derivative (ATVertexB Add left right) var = ATVertexB Add (derivative left var) (derivative right var)
+
+derivative (ATVertexB Subtract left right) var = ATVertexB Subtract (derivative left var) (derivative right var)
+
+derivative (ATVertexB Multiply left right) var =
+    ATVertexB Add
+        (ATVertexB Multiply (derivative left var) right)
+        (ATVertexB Multiply left (derivative right var))
+
+derivative (ATVertexB Divide left right) var =
+    ATVertexB Divide
+        (ATVertexB Subtract
+            (ATVertexB Multiply (derivative left var) right)
+            (ATVertexB Multiply left (derivative right var)))
+        (ATVertexB Pow right (ATLeafC 2))
+
+derivative (ATVertexB Pow (ATLeafV varTree) (ATLeafC num)) varInput
+    | varTree /= varInput   = ATLeafC 0
+    | otherwise             = ATVertexB Pow (ATLeafV varTree) (ATLeafC (num - 1))
+derivative tree@(ATVertexB Pow (ATLeafC _) (ATLeafC _)) _ = tree
+derivative (ATVertexB Pow left (ATLeafC num)) var = ATVertexB Multiply (ATLeafC num) (ATVertexB Multiply (ATVertexB Pow left (ATLeafC (num - 1))) (derivative left var))
+
+derivative (ATVertexB Min left right) var = ATVertexB Min (derivative left var) (derivative right var)
+derivative (ATVertexB Max left right) var = ATVertexB Max (derivative left var) (derivative right var)

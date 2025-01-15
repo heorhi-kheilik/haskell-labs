@@ -35,10 +35,6 @@ instance Alternative Parser where
 
 ---------- Parsers ----------
 
-letter = Parser p where
-    p (x : xs)  | isAlpha x = [([x], xs)]
-    p _ = []
-
 digit = Parser p where
     p (x : xs)  | isDigit x = [([x], xs)]
     p _ = []
@@ -83,9 +79,7 @@ commandDecomposingParser command =
             (:) <$> (join <$> many whitespace) <*> (
                 (:) <$> semicolon <*> pure [])))
 
-popParser = commandDecomposingParser "pop"
-
----------- Command definition ----------
+---------- Stack Machine ----------
 
 data Command
     = Push Double
@@ -104,9 +98,44 @@ parserFor command = case command of
     Mul     -> Mul <$ commandDecomposingParser "mul"
     Div     -> Div <$ commandDecomposingParser "div"
 
+-- First retrieved argument from stack is last argument in function.
+-- Function returns results in a way that first argument must be put on stack first.
+actionFor :: Command -> (Int, ([Double] -> [Double]))
+actionFor command = case command of
+    Push arg    -> ( 0, const [arg] )
+    Pop         -> ( 1, const []    )
+    Add         -> ( 2, func        ) where func (b : a : []) = [a + b]
+    Sub         -> ( 2, func        ) where func (b : a : []) = [a - b]
+    Mul         -> ( 2, func        ) where func (b : a : []) = [a * b]
+    Div         -> ( 2, func        ) where func (b : a : []) = [a / b]
+
 completeParser = parserFor (Push 0)
              <|> parserFor Pop
              <|> parserFor Add
              <|> parserFor Sub
              <|> parserFor Mul
              <|> parserFor Div
+
+data StackMachine = StackMachine { stack :: [Double]
+                                 , commands :: [Command]
+                                 }
+                                 deriving (Show)
+
+-- Produces new stack after applying function.
+run :: StackMachine -> [Double]
+run StackMachine { stack = stack, commands = commands } = foldl runCommand stack commands
+
+parseProgram :: String -> [Command]
+parseProgram = fst . head . runParser (many completeParser)
+
+stackMachineWithTextProgram :: [Double] -> String -> StackMachine
+stackMachineWithTextProgram stack program = StackMachine { stack = stack
+                                                         , commands = parseProgram program
+                                                         }
+
+runCommand stack command =
+    let (argc, func) = actionFor command
+        (argv, stack') = splitAt argc stack
+        results = func argv
+    in
+        foldl (flip (:)) stack' results

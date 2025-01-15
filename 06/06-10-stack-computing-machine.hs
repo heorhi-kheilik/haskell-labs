@@ -49,6 +49,8 @@ semicolon = Parser p where
 
 number = join <$> some digit
 
+
+
 string pattern = Parser p where
     p input
         | length input < len    = []
@@ -90,6 +92,11 @@ data Command
     | Div
     deriving (Show)
 
+data SMError
+    = MissingOperandError
+    | CalculationError
+    deriving (Show)
+
 parserFor command = case command of
     Push _  -> pushParser
     Pop     -> Pop <$ commandDecomposingParser "pop"
@@ -100,14 +107,25 @@ parserFor command = case command of
 
 -- First retrieved argument from stack is last argument in function.
 -- Function returns results in a way that first argument must be put on stack first.
-actionFor :: Command -> (Int, ([Double] -> [Double]))
+actionFor :: Command -> (Int, ([Double] -> (Either SMError [Double])))
 actionFor command = case command of
-    Push arg    -> ( 0, const [arg] )
-    Pop         -> ( 1, const []    )
-    Add         -> ( 2, func        ) where func (b : a : []) = [a + b]
-    Sub         -> ( 2, func        ) where func (b : a : []) = [a - b]
-    Mul         -> ( 2, func        ) where func (b : a : []) = [a * b]
-    Div         -> ( 2, func        ) where func (b : a : []) = [a / b]
+    Push arg    -> (0, func) where func _            = Right [arg]
+
+    Pop         -> (1, func) where func (a : [])     = Right []
+                                   func _            = Left MissingOperandError
+
+    Add         -> (2, func) where func (b : a : []) = Right [a + b]
+                                   func _            = Left MissingOperandError
+
+    Sub         -> (2, func) where func (b : a : []) = Right [a - b]
+                                   func _            = Left MissingOperandError
+
+    Mul         -> (2, func) where func (b : a : []) = Right [a * b]
+                                   func _            = Left MissingOperandError
+
+    Div         -> (2, func) where func (0 : a : []) = Left CalculationError
+                                   func (b : a : []) = Right [a / b]
+                                   func _            = Left MissingOperandError
 
 completeParser = parserFor (Push 0)
              <|> parserFor Pop
@@ -116,26 +134,27 @@ completeParser = parserFor (Push 0)
              <|> parserFor Mul
              <|> parserFor Div
 
-data StackMachine = StackMachine { stack :: [Double]
+data StackMachine = StackMachine { state :: Either SMError [Double]
                                  , commands :: [Command]
                                  }
                                  deriving (Show)
-
--- Produces new stack after applying function.
-run :: StackMachine -> [Double]
-run StackMachine { stack = stack, commands = commands } = foldl runCommand stack commands
 
 parseProgram :: String -> [Command]
 parseProgram = fst . head . runParser (many completeParser)
 
 stackMachineWithTextProgram :: [Double] -> String -> StackMachine
-stackMachineWithTextProgram stack program = StackMachine { stack = stack
+stackMachineWithTextProgram stack program = StackMachine { state = Right stack
                                                          , commands = parseProgram program
                                                          }
 
-runCommand stack command =
+runCommand :: Command -> [Double] -> (Either SMError [Double])
+runCommand command stack =
     let (argc, func) = actionFor command
         (argv, stack') = splitAt argc stack
-        results = func argv
-    in
-        foldl (flip (:)) stack' results
+    in do
+        calculated <- func argv
+        return $ foldl (flip (:)) stack' calculated
+
+-- Produces new stack after applying function.
+run StackMachine { state = state, commands = commands } =
+    foldl (>>=) state (fmap (($) runCommand) commands)

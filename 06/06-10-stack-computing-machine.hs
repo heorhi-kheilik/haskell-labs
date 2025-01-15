@@ -47,8 +47,12 @@ semicolon = Parser p where
     p (x : xs)  | x == ';' = [([x], xs)]
     p _ = []
 
-number = join <$> some digit
+integerNumber = join <$> some digit
 
+floatingNumber =
+    (++) <$> (join <$> some digit) <*> (
+        (++) <$> string "." <*> (
+            (++) <$> (join <$> some digit) <*> pure ""))
 
 
 string pattern = Parser p where
@@ -68,12 +72,13 @@ pushDecomposingParser =
     (:) <$> (join <$> many whitespace) <*> (
         (:) <$> string "push" <*> (
             (:) <$> (join <$> some whitespace) <*> (
-                (:) <$> number <*> (
+                (:) <$> (floatingNumber <|> integerNumber) <*> (
                     (:) <$> (join <$> many whitespace) <*> (
                         (:) <$> semicolon <*> pure [])))))
 
 pushParser = func <$> pushDecomposingParser where
-    func xss = Push (read $ head $ filter (all isDigit) $ filter (not . null) xss)
+    func xss = Push (read $ head $ filter numCharsOnly $ filter (not . null) xss)
+    numCharsOnly = all (\x -> isDigit x || x == '.')
 
 commandDecomposingParser command =
     (:) <$> (join <$> many whitespace) <*> (
